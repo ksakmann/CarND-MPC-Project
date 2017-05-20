@@ -99,26 +99,39 @@ int main() {
           *
           */
 
+          assert(ptsx.size() == ptsy.size());
           unsigned len = ptsx.size();
-          assert(len == ptsy.size());
 
           // Affine transformation. Translate to car coordinate system then rotate to the car's orientation. 
+          // Local coordinates take capital letters. The reference trajectory in local coordinates:
           Eigen::VectorXd Ptsx(len);
           Eigen::VectorXd Ptsy(len);
 
           for (auto i=0; i<len ; ++i){
 
-            double X = ptsx[i] - px;
-            double Y = ptsy[i] - py;
-            Ptsx(i) =  cos(psi) * X + sin(psi) * Y;
-            Ptsy(i) =  -sin(psi) * X + cos(psi) * Y;
+            Ptsx(i) =   cos(psi) * (ptsx[i] - px) + sin(psi) * (ptsy[i] - py);
+            Ptsy(i) =  -sin(psi) * (ptsx[i] - px) + cos(psi) * (ptsy[i] - py);
 
           } 
-      
+
+          // get cross-track error      
           // Use a polynomial approximation to the reference line to calculate the current cross-track error
           auto coeffs = polyfit(Ptsx, Ptsy, 3);
           double cte = polyeval(coeffs, 0);
-          cout << " cte " << cte << endl;
+          cout << " cte  " << cte << endl;
+
+          // get orientation error 
+          // TODO put this ins a function. In local coordinates the epsi error is 
+          // -atan(c1 + c2*x + c3* x^2), but the car is always at x=0.
+          //  The x - dependency is important for the evaluation of the trajectory cost.
+          double epsi = -atan(coeffs[1]);
+          cout << " epsi " << epsi << endl;
+
+
+          Eigen::VectorXd state(6);
+          state << 0, 0, 0, v, cte, epsi;
+
+          //auto vars = mpc.Solve(state, coeffs);
 
           //TODO: set these to the controls computed from MPC
           double steer_value = -0.05;
