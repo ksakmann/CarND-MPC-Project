@@ -98,19 +98,48 @@ int main() {
           * Both are in between [-1, 1].
           *
           */
-          double steer_value;
-          double throttle_value;
+
+          unsigned len = ptsx.size();
+          assert(len == ptsy.size());
+
+          // Affine transformation. Translate to car coordinate system then rotate to the car's orientation. 
+          Eigen::VectorXd Ptsx(len);
+          Eigen::VectorXd Ptsy(len);
+
+          for (auto i=0; i<len ; ++i){
+
+            double X = ptsx[i] - px;
+            double Y = ptsy[i] - py;
+            Ptsx(i) =  cos(psi) * X + sin(psi) * Y;
+            Ptsy(i) =  -sin(psi) * X + cos(psi) * Y;
+
+          } 
+      
+          // Use a polynomial approximation to the reference line to calculate the current cross-track error
+          auto coeffs = polyfit(Ptsx, Ptsy, 3);
+          double cte = polyeval(coeffs, 0);
+          cout << " cte " << cte << endl;
+
+          //TODO: set these to the controls computed from MPC
+          double steer_value = -0.05;
+          double throttle_value =  0.05;
 
           json msgJson;
           msgJson["steering_angle"] = steer_value;
           msgJson["throttle"] = throttle_value;
 
-          //Display the MPC predicted trajectory 
+          // TODO: put the correct values here not Ptsx
+          // Display the MPC predicted trajectory 
           vector<double> mpc_x_vals;
           vector<double> mpc_y_vals;
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Green line
+          // TODO: it's not Ptsx
+          mpc_x_vals.push_back(Ptsx(0));
+          mpc_x_vals.push_back(Ptsx(1));
+          mpc_y_vals.push_back(Ptsy(0));
+          mpc_y_vals.push_back(Ptsy(1));
 
           msgJson["mpc_x"] = mpc_x_vals;
           msgJson["mpc_y"] = mpc_y_vals;
@@ -119,6 +148,10 @@ int main() {
           vector<double> next_x_vals;
           vector<double> next_y_vals;
 
+          for (unsigned i=0 ; i < ptsx.size(); ++i) {
+            next_x_vals.push_back(Ptsx(i));
+            next_y_vals.push_back(Ptsy(i));
+          }
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Yellow line
 
