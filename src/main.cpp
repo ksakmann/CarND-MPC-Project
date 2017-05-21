@@ -120,6 +120,7 @@ int main() {
           double cte = polyeval(coeffs, 0);
           cout << " cte  " << cte << endl;
 
+
           // get orientation error 
           // TODO put this ins a function. In local coordinates the epsi error is 
           // -atan(c1 + c2*x + c3* x^2), but the car is always at x=0.
@@ -131,14 +132,19 @@ int main() {
           Eigen::VectorXd state(6);
           state << 0, 0, 0, v, cte, epsi;
 
-          //auto vars = mpc.Solve(state, coeffs);
-
           //TODO: set these to the controls computed from MPC
-          double steer_value = -0.05;
-          double throttle_value =  0.05;
+          double steer_value;
+          double throttle_value;
+          auto vars = mpc.Solve(state, coeffs);
+          steer_value = vars[6];
+          throttle_value = vars[7];            
+
+          cout << " steer_value " << steer_value << endl ;
+
 
           json msgJson;
-          msgJson["steering_angle"] = steer_value;
+          // mathematically positive angles are negative in the simulator, therefore feed the negative of the solution!
+          msgJson["steering_angle"] = -steer_value; 
           msgJson["throttle"] = throttle_value;
 
           // TODO: put the correct values here not Ptsx
@@ -149,10 +155,22 @@ int main() {
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Green line
           // TODO: it's not Ptsx
-          mpc_x_vals.push_back(Ptsx(0));
-          mpc_x_vals.push_back(Ptsx(1));
-          mpc_y_vals.push_back(Ptsy(0));
-          mpc_y_vals.push_back(Ptsy(1));
+          mpc_x_vals.push_back(vars[0]);          
+          mpc_x_vals.push_back(vars[8]);          
+          mpc_x_vals.push_back(vars[9]);          
+          mpc_x_vals.push_back(vars[10]);          
+          mpc_x_vals.push_back(vars[11]);          
+          mpc_x_vals.push_back(vars[12]);          
+
+          mpc_y_vals.push_back(vars[1]);
+          mpc_y_vals.push_back(vars[13]);
+          mpc_y_vals.push_back(vars[14]);
+          mpc_y_vals.push_back(vars[15]);
+          mpc_y_vals.push_back(vars[16]);
+          mpc_y_vals.push_back(vars[17]);
+          
+          cout << "mpc x1 " << vars[0] << " mpc x2 " << vars[8] << " mpc y1 " << vars[1] << " mpc y2 " << vars[9] << endl;
+ 
 
           msgJson["mpc_x"] = mpc_x_vals;
           msgJson["mpc_y"] = mpc_y_vals;
@@ -183,7 +201,7 @@ int main() {
           //
           // NOTE: REMEMBER TO SET THIS TO 100 MILLISECONDS BEFORE
           // SUBMITTING.
-          this_thread::sleep_for(chrono::milliseconds(100));
+          this_thread::sleep_for(chrono::milliseconds(0));
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         }
       } else {
