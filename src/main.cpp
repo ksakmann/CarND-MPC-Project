@@ -9,61 +9,93 @@
 #include "MPC.h"
 #include "json.hpp"
 
-// for convenience
-using json = nlohmann::json;
+namespace {
+  // for convenience
+  using json = nlohmann::json;
 
-// For converting back and forth between radians and degrees.
-constexpr double pi() { return M_PI; }
-double deg2rad(double x) { return x * pi() / 180; }
-double rad2deg(double x) { return x * 180 / pi(); }
+  // For converting back and forth between radians and degrees.
+  constexpr double pi() { return M_PI; }
+  double deg2rad(double x) { return x * pi() / 180; }
+  double rad2deg(double x) { return x * 180 / pi(); }
 
-// Checks if the SocketIO event has JSON data.
-// If there is data the JSON object in string format will be returned,
-// else the empty string "" will be returned.
-string hasData(string s) {
-  auto found_null = s.find("null");
-  auto b1 = s.find_first_of("[");
-  auto b2 = s.rfind("}]");
-  if (found_null != string::npos) {
-    return "";
-  } else if (b1 != string::npos && b2 != string::npos) {
-    return s.substr(b1, b2 - b1 + 2);
-  }
-  return "";
-}
-
-// Evaluate a polynomial.
-double polyeval(Eigen::VectorXd coeffs, double x) {
-  double result = 0.0;
-  for (int i = 0; i < coeffs.size(); i++) {
-    result += coeffs[i] * pow(x, i);
-  }
-  return result;
-}
-
-// Fit a polynomial.
-// Adapted from
-// https://github.com/JuliaMath/Polynomials.jl/blob/master/src/Polynomials.jl#L676-L716
-Eigen::VectorXd polyfit(Eigen::VectorXd xvals, Eigen::VectorXd yvals,
-                        int order) {
-  assert(xvals.size() == yvals.size());
-  assert(order >= 1 && order <= xvals.size() - 1);
-  Eigen::MatrixXd A(xvals.size(), order + 1);
-
-  for (int i = 0; i < xvals.size(); i++) {
-    A(i, 0) = 1.0;
-  }
-
-  for (int j = 0; j < xvals.size(); j++) {
-    for (int i = 0; i < order; i++) {
-      A(j, i + 1) = A(j, i) * xvals(j);
+  // Checks if the SocketIO event has JSON data.
+  // If there is data the JSON object in string format will be returned,
+  // else the empty string "" will be returned.
+  string hasData(string s) {
+    auto found_null = s.find("null");
+    auto b1 = s.find_first_of("[");
+    auto b2 = s.rfind("}]");
+    if (found_null != string::npos) {
+      return "";
+    } else if (b1 != string::npos && b2 != string::npos) {
+      return s.substr(b1, b2 - b1 + 2);
     }
+    return "";
   }
 
-  auto Q = A.householderQr();
-  auto result = Q.solve(yvals);
-  return result;
-}
+  // Evaluate a polynomial.
+  double polyeval(Eigen::VectorXd coeffs, double x) {
+    double result = 0.0;
+    for (int i = 0; i < coeffs.size(); i++) {
+      result += coeffs[i] * pow(x, i);
+    }
+    return result;
+  }
+
+  // Fit a polynomial. Adapted from
+  // https://github.com/JuliaMath/Polynomials.jl/blob/master/src/Polynomials.jl#L676-L716
+  Eigen::VectorXd polyfit(Eigen::VectorXd xvals, Eigen::VectorXd yvals, int order) {
+    assert(xvals.size() == yvals.size());
+    assert(order >= 1 && order <= xvals.size() - 1);
+    Eigen::MatrixXd A(xvals.size(), order + 1);
+
+    for (int i = 0; i < xvals.size(); i++) {
+      A(i, 0) = 1.0;
+    }
+
+    for (int j = 0; j < xvals.size(); j++) {
+      for (int i = 0; i < order; i++) {
+        A(j, i + 1) = A(j, i) * xvals(j);
+      }
+    }
+
+    auto Q = A.householderQr();
+    auto result = Q.solve(yvals);
+    return result;
+  }
+
+  // In vehicle coordinates the cross-track error error cte is 
+  // the intercept at x = 0
+  double evaluateCte(Eigen::VectorXd coeffs) {
+    return polyeval(coeffs, 0);  
+  }
+
+  // In vehicle coordinates the orientation error epsi is 
+  // -atan(c1 + c2*x + c3* x^2), but the car is always at x=0.
+  double evaluateEpsi(Eigen::VectorXd coeffs) {
+    return -atan(coeffs[1]);  
+  }
+
+
+  Eigen::MatrixXd transformGlobalToLocal(double x, double y, double psi, double v, const vector<double> & ptsx, const vector<double> & ptsy) {
+
+    assert(ptsx.size() == ptsy.size());
+    unsigned len = ptsx.size();
+
+    auto waypoints = Eigen::MatrixXd(2,len);
+
+    for (auto i=0; i<len ; ++i){
+      waypoints(0,i) =   cos(psi) * (ptsx[i] - x) + sin(psi) * (ptsy[i] - y);
+      waypoints(1,i) =  -sin(psi) * (ptsx[i] - x) + cos(psi) * (ptsy[i] - y);  
+    } 
+
+    return waypoints;
+
+  }
+
+  const int latency = 100; 
+
+} //namespace
 
 int main() {
   uWS::Hub h;
@@ -92,86 +124,67 @@ int main() {
           double psi = j[1]["psi"];
           double v = j[1]["speed"];
 
-          /*
-          * TODO: Calculate steeering angle and throttle using MPC.
-          *
-          * Both are in between [-1, 1].
-          *
-          */
-
-          assert(ptsx.size() == ptsy.size());
-          unsigned len = ptsx.size();
-
           // Affine transformation. Translate to car coordinate system then rotate to the car's orientation. 
           // Local coordinates take capital letters. The reference trajectory in local coordinates:
-          Eigen::VectorXd Ptsx(len);
-          Eigen::VectorXd Ptsy(len);
+          Eigen::MatrixXd waypoints = transformGlobalToLocal(px,py,psi,v,ptsx,ptsy);
+          Eigen::VectorXd Ptsx = waypoints.row(0);
+          Eigen::VectorXd Ptsy = waypoints.row(1);
 
-          for (auto i=0; i<len ; ++i){
-
-            Ptsx(i) =   cos(psi) * (ptsx[i] - px) + sin(psi) * (ptsy[i] - py);
-            Ptsy(i) =  -sin(psi) * (ptsx[i] - px) + cos(psi) * (ptsy[i] - py);
-
-          } 
-
-          // get cross-track error      
-          // Use a polynomial approximation to the reference line to calculate the current cross-track error
+          // fit a 3rd order polynomial to the waypoints
           auto coeffs = polyfit(Ptsx, Ptsy, 3);
-          double cte = polyeval(coeffs, 0);
-          cout << " cte  " << cte << endl;
 
+          // get cross-track error from fit 
+          double cte = evaluateCte(coeffs);
 
-          // get orientation error 
-          // TODO put this ins a function. In local coordinates the epsi error is 
-          // -atan(c1 + c2*x + c3* x^2), but the car is always at x=0.
-          //  The x - dependency is important for the evaluation of the trajectory cost.
-          double epsi = -atan(coeffs[1]);
-          cout << " epsi " << epsi << endl;
+          // get orientation error from fit
+          double epsi = evaluateEpsi(coeffs);
 
-
+          // state in vehicle coordinates: x,y and orientation are always zero
           Eigen::VectorXd state(6);
           state << 0, 0, 0, v, cte, epsi;
 
-          //TODO: set these to the controls computed from MPC
-          double steer_value;
-          double throttle_value;
+          // compute the optimal trajectory
           auto vars = mpc.Solve(state, coeffs);
-          steer_value = vars[6];
-          throttle_value = vars[7];            
-
-          cout << " steer_value " << steer_value << endl ;
-
+          double steer_value = vars[6];;
+          double throttle_value= vars[7];
 
           json msgJson;
-          // mathematically positive angles are negative in the simulator, therefore feed the negative of the solution!
+          // mathematically positive angles are negative in the simulator, therefore we have to feed the negative steer_value.
           msgJson["steering_angle"] = -steer_value; 
           msgJson["throttle"] = throttle_value;
 
-          // TODO: put the correct values here not Ptsx
           // Display the MPC predicted trajectory 
           vector<double> mpc_x_vals;
           vector<double> mpc_y_vals;
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Green line
-          // TODO: it's not Ptsx
           mpc_x_vals.push_back(vars[0]);          
           mpc_x_vals.push_back(vars[8]);          
           mpc_x_vals.push_back(vars[9]);          
-          mpc_x_vals.push_back(vars[10]);          
-          mpc_x_vals.push_back(vars[11]);          
-          mpc_x_vals.push_back(vars[12]);          
+//          mpc_x_vals.push_back(vars[10]);          
+//          mpc_x_vals.push_back(vars[11]);          
+//          mpc_x_vals.push_back(vars[12]);          
 
           mpc_y_vals.push_back(vars[1]);
-          mpc_y_vals.push_back(vars[13]);
-          mpc_y_vals.push_back(vars[14]);
-          mpc_y_vals.push_back(vars[15]);
-          mpc_y_vals.push_back(vars[16]);
-          mpc_y_vals.push_back(vars[17]);
+          mpc_y_vals.push_back(vars[11]);
+          mpc_y_vals.push_back(vars[12]);
+//          mpc_y_vals.push_back(vars[15]);
+//          mpc_y_vals.push_back(vars[16]);
+//          mpc_y_vals.push_back(vars[17]);
           
-          cout << "mpc x1 " << vars[0] << " mpc x2 " << vars[8] << " mpc y1 " << vars[1] << " mpc y2 " << vars[9] << endl;
- 
-
+          cout << " x           " << px << endl;
+          cout << " y           " << py << endl;
+          cout << " psi         " << psi << endl;
+          cout << " v           " << v << endl;
+          cout << " cte         " << cte << endl;
+          cout << " epsi        " << epsi << endl;
+          cout << " steer_value " << steer_value << endl ;
+          cout << " mpc x1      " << vars[0] << " mpc y1 " << vars[1] << endl;
+          cout << " mpc x4      " << vars[8] << " mpc y4 " << vars[11] << endl;
+          cout << " mpc x9      " << vars[9] << " mpc y9 " << vars[12] << endl;
+          cout << " mpc x14     " << vars[10] << " mpc y14 " << vars[13] << endl;
+          
           msgJson["mpc_x"] = mpc_x_vals;
           msgJson["mpc_y"] = mpc_y_vals;
 
@@ -201,7 +214,7 @@ int main() {
           //
           // NOTE: REMEMBER TO SET THIS TO 100 MILLISECONDS BEFORE
           // SUBMITTING.
-          this_thread::sleep_for(chrono::milliseconds(0));
+          this_thread::sleep_for(chrono::milliseconds(latency));
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         }
       } else {
@@ -245,3 +258,17 @@ int main() {
   }
   h.run();
 }
+
+
+          /*static double delta_old = 0;
+          double Lf = 2.67;
+          double psi_dot = v/Lf *delta_old; 
+          if (fabs(psi_dot) < 0.000001){
+            px += 0;// v/psi_dot * (sin(psi + psi_dot*latency/10000) -sin(psi));
+            py += 0;//-v/psi_dot * (cos(psi + psi_dot*latency/10000) +cos(psi));
+          }
+          else{
+            px += cos(psi) * v * latency/5000;
+            py += sin(psi) * v * latency/5000;
+          }
+          */
