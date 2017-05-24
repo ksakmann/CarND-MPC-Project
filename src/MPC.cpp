@@ -23,7 +23,7 @@ const double Lf = 2.67;
 
 double ref_cte = 0;
 double ref_epsi = 0;
-double ref_v = 40;
+double ref_v = 50;
 
 // The solver takes all the state variables and actuator
 // variables in a singular vector. Thus, we should to establish
@@ -75,14 +75,13 @@ class FG_eval {
 
     //
     // Setup Constraints
-    //
-    // NOTE: In this section you'll setup the model constraints.
-
     // Initial constraints
     //
     // We add 1 to each of the starting indices due to cost being located at
     // index 0 of `fg`.
     // This bumps up the position of all the other values.
+    // 
+
     fg[1 + x_start] = vars[x_start];
     fg[1 + y_start] = vars[y_start];
     fg[1 + psi_start] = vars[psi_start];
@@ -142,7 +141,8 @@ class FG_eval {
 MPC::MPC() {}
 MPC::~MPC() {}
 
-vector<double> MPC::Solve(Eigen::VectorXd x0, Eigen::VectorXd coeffs) {
+//vector<double> MPC::Solve(Eigen::VectorXd x0, Eigen::VectorXd coeffs) {
+Solution MPC::Solve(Eigen::VectorXd x0, Eigen::VectorXd coeffs) {
   size_t i;
   typedef CPPAD_TESTVECTOR(double) Dvector;
 
@@ -186,14 +186,12 @@ vector<double> MPC::Solve(Eigen::VectorXd x0, Eigen::VectorXd coeffs) {
 
   // The upper and lower limits of delta are set to -25 and 25
   // degrees (values in radians).
-  // NOTE: Feel free to change this to something else.
   for (int i = delta_start; i < a_start; i++) {
     vars_lowerbound[i] = -0.436332;
     vars_upperbound[i] = 0.436332;
   }
 
   // Acceleration/decceleration upper and lower limits.
-  // NOTE: Feel free to change this to something else.
   for (int i = a_start; i < n_vars; i++) {
     vars_lowerbound[i] = -1.0;
     vars_upperbound[i] = 1.0;
@@ -240,26 +238,22 @@ vector<double> MPC::Solve(Eigen::VectorXd x0, Eigen::VectorXd coeffs) {
       options, vars, vars_lowerbound, vars_upperbound, constraints_lowerbound,
       constraints_upperbound, fg_eval, solution);
 
-  //
-  // Check some of the solution values
-  //
   bool ok = true;
   ok &= solution.status == CppAD::ipopt::solve_result<Dvector>::success;
   //cout << "ok " << ok << endl;
 
-  for (auto i = 0; i < N ; i++){
+  Solution sol;
+  for (auto i = 0; i < N-1 ; i++){
   	cout << i << ": " << "solution.x[x_start+i]: " << solution.x[x_start+i] << "solution.x[y_start+i]: " << solution.x[y_start+i] << endl;
+  	sol.X.push_back(solution.x[x_start+i]);
+  	sol.Y.push_back(solution.x[y_start+i]);
+  	sol.Delta.push_back(solution.x[delta_start+i]);
+  	sol.A.push_back(solution.x[a_start+i]);
   }
 
   auto cost = solution.obj_value;
   std::cout << "Cost " << cost << std::endl;
-  return {solution.x[x_start + 1],   solution.x[y_start + 1],
-          solution.x[psi_start + 1], solution.x[v_start + 1],
-          solution.x[cte_start + 1], solution.x[epsi_start + 1],
-          solution.x[delta_start+2], solution.x[a_start + 2],
-      	  solution.x[x_start + 4],   solution.x[x_start + 9],
-      	  solution.x[x_start + 14],
-      	  solution.x[y_start + 4],   solution.x[y_start + 9],
-      	  solution.x[y_start + 14]
-          };
+
+  return sol;
+
 }

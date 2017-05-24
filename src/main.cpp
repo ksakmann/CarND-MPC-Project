@@ -144,35 +144,18 @@ int main() {
           state << 0, 0, 0, v, cte, epsi;
 
           // compute the optimal trajectory
-          auto vars = mpc.Solve(state, coeffs);
-          double steer_value = vars[6];;
-          double throttle_value= vars[7];
+          //auto vars = mpc.Solve(state, coeffs);
+          Solution sol = mpc.Solve(state, coeffs);
+          double steer_value = sol.Delta.at(4);
+          double throttle_value= sol.A.at(4);
 
           json msgJson;
           // mathematically positive angles are negative in the simulator, therefore we have to feed the negative steer_value.
           msgJson["steering_angle"] = -steer_value; 
           msgJson["throttle"] = throttle_value;
 
-          // Display the MPC predicted trajectory 
-          vector<double> mpc_x_vals;
-          vector<double> mpc_y_vals;
-
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
           // the points in the simulator are connected by a Green line
-          mpc_x_vals.push_back(vars[0]);          
-          mpc_x_vals.push_back(vars[8]);          
-          mpc_x_vals.push_back(vars[9]);          
-//          mpc_x_vals.push_back(vars[10]);          
-//          mpc_x_vals.push_back(vars[11]);          
-//          mpc_x_vals.push_back(vars[12]);          
-
-          mpc_y_vals.push_back(vars[1]);
-          mpc_y_vals.push_back(vars[11]);
-          mpc_y_vals.push_back(vars[12]);
-//          mpc_y_vals.push_back(vars[15]);
-//          mpc_y_vals.push_back(vars[16]);
-//          mpc_y_vals.push_back(vars[17]);
-          
           cout << " x           " << px << endl;
           cout << " y           " << py << endl;
           cout << " psi         " << psi << endl;
@@ -180,13 +163,10 @@ int main() {
           cout << " cte         " << cte << endl;
           cout << " epsi        " << epsi << endl;
           cout << " steer_value " << steer_value << endl ;
-          cout << " mpc x1      " << vars[0] << " mpc y1 " << vars[1] << endl;
-          cout << " mpc x4      " << vars[8] << " mpc y4 " << vars[11] << endl;
-          cout << " mpc x9      " << vars[9] << " mpc y9 " << vars[12] << endl;
-          cout << " mpc x14     " << vars[10] << " mpc y14 " << vars[13] << endl;
           
-          msgJson["mpc_x"] = mpc_x_vals;
-          msgJson["mpc_y"] = mpc_y_vals;
+          // Display the MPC predicted trajectory 
+          msgJson["mpc_x"] = sol.X;
+          msgJson["mpc_y"] = sol.Y;
 
           //Display the waypoints/reference line
           vector<double> next_x_vals;
@@ -201,7 +181,6 @@ int main() {
 
           msgJson["next_x"] = next_x_vals;
           msgJson["next_y"] = next_y_vals;
-
 
           auto msg = "42[\"steer\"," + msgJson.dump() + "]";
           std::cout << msg << std::endl;
