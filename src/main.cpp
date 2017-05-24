@@ -9,6 +9,7 @@
 #include "MPC.h"
 #include "json.hpp"
 
+
 namespace {
   // for convenience
   using json = nlohmann::json;
@@ -93,7 +94,6 @@ namespace {
 
   }
 
-  const int latency = 100; 
 
 } //namespace
 
@@ -143,11 +143,13 @@ int main() {
           Eigen::VectorXd state(6);
           state << 0, 0, 0, v, cte, epsi;
 
-          // compute the optimal trajectory
-          //auto vars = mpc.Solve(state, coeffs);
+          // compute the optimal trajectory          
           Solution sol = mpc.Solve(state, coeffs);
-          double steer_value = sol.Delta.at(4);
-          double throttle_value= sol.A.at(4);
+
+          double steer_value = sol.Delta.at(latency-1);
+          double throttle_value= sol.A.at(latency-1);
+          mpc.delta_prev = steer_value;
+          mpc.a_prev = throttle_value;
 
           json msgJson;
           // mathematically positive angles are negative in the simulator, therefore we have to feed the negative steer_value.
@@ -163,6 +165,7 @@ int main() {
           cout << " cte         " << cte << endl;
           cout << " epsi        " << epsi << endl;
           cout << " steer_value " << steer_value << endl ;
+          cout << " throttle    " << throttle_value << endl ;
           
           // Display the MPC predicted trajectory 
           msgJson["mpc_x"] = sol.X;
@@ -193,7 +196,8 @@ int main() {
           //
           // NOTE: REMEMBER TO SET THIS TO 100 MILLISECONDS BEFORE
           // SUBMITTING.
-          this_thread::sleep_for(chrono::milliseconds(latency));
+          int milliseconds_latency = (int) latency*dt*1000;          
+          this_thread::sleep_for(chrono::milliseconds(milliseconds_latency));
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         }
       } else {
