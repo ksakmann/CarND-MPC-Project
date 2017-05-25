@@ -6,9 +6,9 @@
 
 using namespace std;
 
-const size_t N = 20;
-const double dt = 0.02;
-const int latency = 5; // 100 ms in units of dt
+const size_t N = 10;
+const double dt = 0.1;
+const int latency_ind = 1; // total latency  in units of dt
 
 struct Solution {
 
@@ -34,7 +34,7 @@ class MPC {
   Solution Solve(Eigen::VectorXd state, Eigen::VectorXd coeffs);
 
   double delta_prev {0};
-  double a_prev {0.05};
+  double a_prev {0.1};
 
 };
 

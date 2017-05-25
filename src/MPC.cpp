@@ -68,7 +68,7 @@ class FG_eval {
 
     // Minimize the value gap between sequential actuations.
     for (int i = 0; i < N - 2; i++) {
-      fg[0] += 100*CppAD::pow(vars[delta_start + i + 1] - vars[delta_start + i], 2);
+      fg[0] += 200*CppAD::pow(vars[delta_start + i + 1] - vars[delta_start + i], 2);
       fg[0] += CppAD::pow(vars[a_start + i + 1] - vars[a_start + i], 2);
     }
 
@@ -189,8 +189,8 @@ Solution MPC::Solve(Eigen::VectorXd x0, Eigen::VectorXd coeffs) {
     vars_upperbound[i] = 0.436332;
   }
 
-  // constrain delta to be the previous control for the latency time (assuming latency*dt = 100ms)
-  for (int i = delta_start; i < delta_start+latency-1; i++) {
+  // constrain delta to be the previous control for the latency time (can be bigger than 100ms)
+  for (int i = delta_start; i < delta_start + latency_ind; i++) {
     vars_lowerbound[i] = delta_prev;
     vars_upperbound[i] = delta_prev;
   }
@@ -198,15 +198,14 @@ Solution MPC::Solve(Eigen::VectorXd x0, Eigen::VectorXd coeffs) {
   // Acceleration/decceleration upper and lower limits.
   for (int i = a_start; i < n_vars; i++) {
     vars_lowerbound[i] = -1.0;
-    vars_upperbound[i] = 1.0;
+    vars_upperbound[i] =  1.0;
   }
 
-  // constrain a to be the previous control for the latency time (assuming 5*dt = 100ms)
-  for (int i = a_start; i < a_start+latency-1; i++) {
+  // constrain a to be the previous control for the latency time 
+  for (int i = a_start; i < a_start+latency_ind; i++) {
     vars_lowerbound[i] = a_prev;
     vars_upperbound[i] = a_prev;
   }
-
 
   // Lower and upper limits for constraints
   // All of these should be 0 except the initial

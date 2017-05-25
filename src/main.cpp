@@ -146,14 +146,15 @@ int main() {
           // compute the optimal trajectory          
           Solution sol = mpc.Solve(state, coeffs);
 
-          double steer_value = sol.Delta.at(latency-1);
-          double throttle_value= sol.A.at(latency-1);
+          double steer_value = sol.Delta.at(latency_ind);
+          double throttle_value= sol.A.at(latency_ind);
           mpc.delta_prev = steer_value;
           mpc.a_prev = throttle_value;
 
           json msgJson;
           // mathematically positive angles are negative in the simulator, therefore we have to feed the negative steer_value.
-          msgJson["steering_angle"] = -steer_value; 
+          // WARNING: the angle that is expected by the current simulator is not in radians! It must be in the range [-1,1].
+          msgJson["steering_angle"] = -steer_value/0.436332; 
           msgJson["throttle"] = throttle_value;
 
           //.. add (x,y) points to list here, points are in reference to the vehicle's coordinate system
@@ -196,7 +197,7 @@ int main() {
           //
           // NOTE: REMEMBER TO SET THIS TO 100 MILLISECONDS BEFORE
           // SUBMITTING.
-          int milliseconds_latency = (int) latency*dt*1000;          
+          int milliseconds_latency = 100;          
           this_thread::sleep_for(chrono::milliseconds(milliseconds_latency));
           ws.send(msg.data(), msg.length(), uWS::OpCode::TEXT);
         }
@@ -241,17 +242,3 @@ int main() {
   }
   h.run();
 }
-
-
-          /*static double delta_old = 0;
-          double Lf = 2.67;
-          double psi_dot = v/Lf *delta_old; 
-          if (fabs(psi_dot) < 0.000001){
-            px += 0;// v/psi_dot * (sin(psi + psi_dot*latency/10000) -sin(psi));
-            py += 0;//-v/psi_dot * (cos(psi + psi_dot*latency/10000) +cos(psi));
-          }
-          else{
-            px += cos(psi) * v * latency/5000;
-            py += sin(psi) * v * latency/5000;
-          }
-          */
