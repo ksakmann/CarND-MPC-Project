@@ -6,9 +6,9 @@
 
 using namespace std;
 
-const size_t N = 10;
-const double dt = 0.1;
-const int latency_ind = 1; // total latency  in units of dt
+const size_t N = 12;
+const double dt = 0.05;
+const int latency_ind = 2; //latency  in units of dt (100ms)
 
 struct Solution {
 

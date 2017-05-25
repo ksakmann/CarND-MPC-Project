@@ -78,7 +78,7 @@ namespace {
   }
 
 
-  Eigen::MatrixXd transformGlobalToLocal(double x, double y, double psi, double v, const vector<double> & ptsx, const vector<double> & ptsy) {
+  Eigen::MatrixXd transformGlobalToLocal(double x, double y, double psi, const vector<double> & ptsx, const vector<double> & ptsy) {
 
     assert(ptsx.size() == ptsy.size());
     unsigned len = ptsx.size();
@@ -126,7 +126,7 @@ int main() {
 
           // Affine transformation. Translate to car coordinate system then rotate to the car's orientation. 
           // Local coordinates take capital letters. The reference trajectory in local coordinates:
-          Eigen::MatrixXd waypoints = transformGlobalToLocal(px,py,psi,v,ptsx,ptsy);
+          Eigen::MatrixXd waypoints = transformGlobalToLocal(px,py,psi,ptsx,ptsy);
           Eigen::VectorXd Ptsx = waypoints.row(0);
           Eigen::VectorXd Ptsy = waypoints.row(1);
 
@@ -153,7 +153,8 @@ int main() {
 
           json msgJson;
           // mathematically positive angles are negative in the simulator, therefore we have to feed the negative steer_value.
-          // WARNING: the angle that is expected by the current simulator is not in radians! It must be in the range [-1,1].
+          // WARNING: the current simulator expects angles as a fraction of the max angle, here 25 degrees, not radians! It must be in the range [-1,1].
+          // 25 degrees in radians are 0.436332.
           msgJson["steering_angle"] = -steer_value/0.436332; 
           msgJson["throttle"] = throttle_value;
 
