@@ -4,9 +4,9 @@ Self-Driving Car Engineer Nanodegree Program
 ---
 
 
-![NMPC](<a href="http://www.youtube.com/watch?feature=player_embedded&v=kKU65EK4MXw
-" target="_blank"><img src="http://img.youtube.com/vi/kKU65EK4MXw/0.jpg" 
-alt="NMPC" width="480" height="360" border="10" /></a>)
+<a href="http://www.youtube.com/watch?feature=player_embedded&v=kKU65EK4MXw
+" target="_blank"><img style="margin: 0 auto" src="http://img.youtube.com/vi/kKU65EK4MXw/0.jpg" 
+alt="NMPC" width="480" height="360" border="10" /></a>
 
 
 ## Project Description
