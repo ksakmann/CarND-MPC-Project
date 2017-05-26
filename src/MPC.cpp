@@ -189,7 +189,7 @@ Solution MPC::Solve(Eigen::VectorXd x0, Eigen::VectorXd coeffs) {
     vars_upperbound[i] = 0.436332;
   }
 
-  // constrain delta to be the previous control for the latency time (can be bigger than 100ms)
+  // constrain delta to be the previous control for the latency time
   for (int i = delta_start; i < delta_start + latency_ind; i++) {
     vars_lowerbound[i] = delta_prev;
     vars_upperbound[i] = delta_prev;
