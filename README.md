@@ -54,7 +54,7 @@ Two common aproaches exist to take delays into account:
 2. In the other approach the control problem is solved from the current position and time onwards. Latency is taken into account by constraining the controls to the values of the previous iteration for the duration of the latency. Thus the optimal trajectory is computed starting from the time after the latency period. This has the advantage that the dynamics during the latency period is still calculated according to the vehicle model. 
  
 Here, I chose the second approach . The actuations are forced to remain at their previous values for the time of the latency. This is implemented in 
-``MPC::Solve` like so. 
+`MPC::Solve` like so. 
 
 ```  
   // constrain delta to be the previous control for the latency time
