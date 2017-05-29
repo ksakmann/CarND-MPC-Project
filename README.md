@@ -1,4 +1,4 @@
-# CarND-Controls-MPC
+# Nonlinear Model Predictive Control with actuator delays.
 Self-Driving Car Engineer Nanodegree Program
 
 ---
